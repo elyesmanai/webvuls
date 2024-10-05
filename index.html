@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Démo Injection SQL avec et sans protection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: auto;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        code {
+            display: block;
+            background-color: #f9f9f9;
+            padding: 10px;
+            margin-top: 10px;
+            text-align: left;
+            color: #d63384;
+        }
+        .section {
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Démo d'Injection SQL (avec et sans protection)</h1>
+
+<div class="container">
+    
+    <!-- Section 1: Injection SQL sans protection -->
+    <div class="section">
+        <h2>Formulaire 1 : Sans protection (Vulnérable à l'Injection SQL)</h2>
+        <p>Entrez un nom d'utilisateur pour simuler une recherche dans une base de données (vulnérable).</p>
+        
+        <input type="text" id="userInputVulnerable" placeholder="Entrez un nom d'utilisateur">
+        <button onclick="searchUserVulnerable()">Rechercher</button>
+        
+        <h3>Requête SQL simulée :</h3>
+        <code id="sqlQueryVulnerable">SELECT * FROM users WHERE username = '...';</code>
+    
+        <h3>Résultats de la recherche :</h3>
+        <div id="resultsVulnerable"></div>
+    </div>
+</div>
+<br><br>
+<div class="container">
+    <!-- Section 2: Explication de la sanitisation -->
+    <div class="section">
+        <h2>Sanitisation des entrées</h2>
+        <p>Pour se protéger contre l'Injection SQL, il est nécessaire d'échapper les caractères dangereux.</p>
+
+        <p>
+            <strong>Exemple:</strong> ajouter le caractère spécial "\" avant tout guillemet simple ' ou double "
+            <br>
+            <br>
+                ' devient \' et " devient \"
+            </span>
+        </p>
+    </div>
+</div>
+<br><br>
+<div class="container">
+    <!-- Section 3: Injection SQL avec protection -->
+    <div class="section">
+        <h2>Formulaire 2 : Avec protection (Sanitisation des entrées)</h2>
+        <p>Entrez un nom d'utilisateur pour simuler une recherche avec protection contre l'injection SQL.</p>
+        
+        <input type="text" id="userInputProtected" placeholder="Entrez un nom d'utilisateur">
+        <button onclick="searchUserProtected()">Rechercher</button>
+        
+        <h3>Requête SQL simulée :</h3>
+        <code id="sqlQueryProtected">SELECT * FROM users WHERE username = '...';</code>
+    
+        <h3>Résultats de la recherche :</h3>
+        <div id="resultsProtected"></div>
+    </div>
+</div>
+
+<script>
+    // List of users for the vulnerable form (Form 1)
+    let vulnerableUsers = ['admin', 'francois', 'kevin'];
+    
+    // List of users for the protected form (Form 2)
+    let protectedUsers = ['admin', 'francois', 'kevin'];
+
+    let tableDropped = false; // Variable to track if the "table" has been dropped
+
+    // Fonction de recherche sans protection (Vulnérable à l'injection SQL)
+    function searchUserVulnerable() {
+        const userInput = document.getElementById('userInputVulnerable').value;
+        // Simulated SQL query
+        const simulatedQuery = `SELECT * FROM users WHERE username = '${userInput}';`;
+        
+        // If table is dropped, stop showing users
+        if (tableDropped) {
+            document.getElementById('resultsVulnerable').textContent = '';
+            document.getElementById('sqlQueryVulnerable').textContent = simulatedQuery;
+            return;
+        }
+
+        // Affichage de la requête SQL simulée
+        document.getElementById('sqlQueryVulnerable').textContent = simulatedQuery;
+
+        // Simuler une injection SQL
+        let results;
+        console.log(userInput);
+
+        // Simulate SQL Injection for DROP TABLE
+        if (userInput === "'; DROP TABLE users --") {
+            tableDropped = true;
+            vulnerableUsers = []
+            results = 'La table "users" a été supprimée !';
+        
+        // Simulate SQL Injection for selecting all users
+        } else if (userInput === "' OR '1'='1") {
+            results = `Tous les utilisateurs : ${vulnerableUsers.join(', ')}`;
+        
+        // Simulate SQL Injection for adding a new user
+        } else if (userInput.startsWith("'; INSERT INTO users VALUES ('elyes') --")) {
+            const newUser = userInput.split("'")[2]; // Extract username between single quotes
+            if (newUser) {
+                vulnerableUsers.push(newUser);
+                results = `Nouvel utilisateur ajouté via injection SQL : ${newUser}`;
+            } else {
+                results = "Erreur dans l'ajout d'utilisateur.";
+            }
+        
+        // Normal user search
+        } else if (vulnerableUsers.includes(userInput)) {
+            results = `Utilisateur trouvé : ${userInput}`;
+        
+        // User not found
+        } else {
+            results = 'Aucun utilisateur trouvé !';
+        }
+
+        // Affichage des résultats
+        document.getElementById('resultsVulnerable').textContent = results;
+    }
+
+    // Fonction de sanitisation des entrées (Simulation de protection via échappement des caractères)
+    function sanitizeInput(input) {
+        return input.replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    // Fonction de recherche avec protection (Sanitisation des entrées)
+    function searchUserProtected() {
+        let userInput = document.getElementById('userInputProtected').value;
+
+        // Sanitize user input (simulate prepared statements)
+        let safeInput = sanitizeInput(userInput);
+        const simulatedQuery = `SELECT * FROM users WHERE username = '${safeInput}';`;
+
+        // Affichage de la requête SQL simulée
+        document.getElementById('sqlQueryProtected').textContent = simulatedQuery;
+
+        // Simuler une recherche sécurisée
+        let results;
+        if (protectedUsers.includes(userInput)) {
+            results = `Utilisateur trouvé : ${userInput}`;
+        } else {
+            results = 'Aucun utilisateur trouvé !';
+        }
+
+        // Affichage des résultats
+        document.getElementById('resultsProtected').textContent = results;
+    }
+</script>
+
+</body>
+</html>
